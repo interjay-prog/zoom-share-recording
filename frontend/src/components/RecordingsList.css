@@ -1,0 +1,141 @@
+.recordings-list {
+  width: 100%;
+}
+
+.recordings-list.empty {
+  text-align: center;
+  padding: 3rem;
+  color: #999;
+}
+
+.recordings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.recording-card {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.2s;
+}
+
+.recording-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #667eea;
+}
+
+.recording-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.recording-title {
+  font-size: 1rem;
+  color: #333;
+  word-break: break-all;
+  margin: 0;
+}
+
+.recording-type {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.recording-details {
+  background: white;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #f0f0f0;
+}
+
+.detail {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.detail:last-child {
+  margin-bottom: 0;
+}
+
+.detail .label {
+  color: #666;
+  font-weight: 500;
+}
+
+.detail .value {
+  color: #333;
+  font-weight: 600;
+}
+
+.share-section {
+  margin-top: 1rem;
+}
+
+.share-token {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.token-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: monospace;
+  background: white;
+}
+
+.copy-button {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.copy-button:hover {
+  background: #764ba2;
+}
+
+.copy-button.copied {
+  background: #4caf50;
+}
+
+.no-share {
+  color: #999;
+  font-size: 0.95rem;
+  padding: 0.5rem;
+  text-align: center;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .recordings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .share-token {
+    flex-direction: column;
+  }
+
+  .copy-button {
+    width: 100%;
+  }
+}
