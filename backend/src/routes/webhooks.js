@@ -45,12 +45,14 @@ router.post('/zoom', validateZoomWebhook, async (req, res) => {
       console.log(`✅ Original recording: ${recording.id}`);
 
       try {
-        const db = getPool();
+        const pool = getPool();
 
         // Find the zoom account
-        const account = db.prepare(
-          'SELECT id, user_id FROM zoom_accounts WHERE zoom_user_id = ?'
-        ).get(recording.host_id);
+        const accountResult = await pool.query(
+          'SELECT id, user_id FROM zoom_accounts WHERE zoom_user_id = $1',
+          [recording.host_id]
+        );
+        const account = accountResult.rows[0];
 
         if (!account) {
           console.log(`⚠️  Account not found for ${recording.host_id}`);
@@ -59,13 +61,13 @@ router.post('/zoom', validateZoomWebhook, async (req, res) => {
 
         // Insert recording
         const recordingId = uuidv4();
-        db.prepare(`
+        await pool.query(`
           INSERT INTO recordings (
             id, zoom_account_id, recording_id, recording_url,
             recording_type, duration, file_size, started_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
           recordingId,
           account.id,
           recording.id,
@@ -74,24 +76,24 @@ router.post('/zoom', validateZoomWebhook, async (req, res) => {
           recording.duration,
           recording.file_size,
           recording.start_time
-        );
+        ]);
 
         // Generate share link
         const shareId = uuidv4();
         const shareToken = uuidv4();
 
-        db.prepare(`
+        await pool.query(`
           INSERT INTO share_links (
             id, zoom_account_id, recording_id, token, created_by_user_id
           )
-          VALUES (?, ?, ?, ?, ?)
-        `).run(
+          VALUES ($1, $2, $3, $4, $5)
+        `, [
           shareId,
           account.id,
           recordingId,
           shareToken,
           account.user_id
-        );
+        ]);
 
         console.log(`📎 Share link: ${shareToken}`);
 
@@ -128,12 +130,14 @@ router.post('/zoom/test', async (req, res) => {
       console.log(`✅ Original recording: ${recording.id}`);
 
       try {
-        const db = getPool();
+        const pool = getPool();
 
         // Find the zoom account
-        const account = db.prepare(
-          'SELECT id, user_id FROM zoom_accounts WHERE zoom_user_id = ?'
-        ).get(recording.host_id);
+        const accountResult = await pool.query(
+          'SELECT id, user_id FROM zoom_accounts WHERE zoom_user_id = $1',
+          [recording.host_id]
+        );
+        const account = accountResult.rows[0];
 
         if (!account) {
           console.log(`⚠️  Account not found for ${recording.host_id}`);
@@ -142,13 +146,13 @@ router.post('/zoom/test', async (req, res) => {
 
         // Insert recording
         const recordingId = uuidv4();
-        db.prepare(`
+        await pool.query(`
           INSERT INTO recordings (
             id, zoom_account_id, recording_id, recording_url,
             recording_type, duration, file_size, started_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
           recordingId,
           account.id,
           recording.id,
@@ -157,24 +161,24 @@ router.post('/zoom/test', async (req, res) => {
           recording.duration,
           recording.file_size,
           recording.start_time
-        );
+        ]);
 
         // Generate share link
         const shareId = uuidv4();
         const shareToken = uuidv4();
 
-        db.prepare(`
+        await pool.query(`
           INSERT INTO share_links (
             id, zoom_account_id, recording_id, token, created_by_user_id
           )
-          VALUES (?, ?, ?, ?, ?)
-        `).run(
+          VALUES ($1, $2, $3, $4, $5)
+        `, [
           shareId,
           account.id,
           recordingId,
           shareToken,
           account.user_id
-        );
+        ]);
 
         console.log(`📎 Share link: ${shareToken}`);
 

@@ -1,87 +1,94 @@
-import Database from 'better-sqlite3';
+import pg from 'pg';
 
-const db = new Database('./zoom_share.db');
+const { Pool } = pg;
 
-// Enable foreign key constraints
-db.pragma('foreign_keys = ON');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
-export function initDB() {
+export async function initDB() {
   try {
-    // Create users table
-    db.exec(`
+    // Create tables
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
+        id UUID PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        name TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
+        name VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
-    // Create zoom_accounts table
-    db.exec(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS zoom_accounts (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id),
-        zoom_user_id TEXT NOT NULL,
-        zoom_email TEXT NOT NULL,
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        zoom_user_id VARCHAR(255) NOT NULL,
+        zoom_email VARCHAR(255) NOT NULL,
         access_token TEXT NOT NULL,
         refresh_token TEXT NOT NULL,
-        token_expires_at DATETIME,
-        account_name TEXT,
-        webhook_token TEXT UNIQUE,
-        webhook_verified BOOLEAN DEFAULT 0,
-        connected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_synced_at DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
+        token_expires_at TIMESTAMP,
+        account_name VARCHAR(255),
+        webhook_token VARCHAR(255) UNIQUE,
+        webhook_verified BOOLEAN DEFAULT FALSE,
+        connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_synced_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
-    // Create recordings table
-    db.exec(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS recordings (
-        id TEXT PRIMARY KEY,
-        zoom_account_id TEXT NOT NULL REFERENCES zoom_accounts(id),
-        recording_id TEXT NOT NULL,
+        id UUID PRIMARY KEY,
+        zoom_account_id UUID NOT NULL REFERENCES zoom_accounts(id) ON DELETE CASCADE,
+        recording_id VARCHAR(255) NOT NULL,
         recording_url TEXT NOT NULL,
-        recording_type TEXT NOT NULL,
+        recording_type VARCHAR(50) NOT NULL,
         duration INTEGER,
-        file_size INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        started_at DATETIME
-      )
+        file_size BIGINT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        started_at TIMESTAMP
+      );
     `);
 
-    // Create share_links table
-    db.exec(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS share_links (
-        id TEXT PRIMARY KEY,
-        zoom_account_id TEXT NOT NULL REFERENCES zoom_accounts(id),
-        recording_id TEXT NOT NULL REFERENCES recordings(id),
-        token TEXT UNIQUE NOT NULL,
-        created_by_user_id TEXT NOT NULL REFERENCES users(id),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        expires_at DATETIME,
+        id UUID PRIMARY KEY,
+        zoom_account_id UUID NOT NULL REFERENCES zoom_accounts(id) ON DELETE CASCADE,
+        recording_id UUID NOT NULL REFERENCES recordings(id) ON DELETE CASCADE,
+        token VARCHAR(255) UNIQUE NOT NULL,
+        created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP,
         access_count INTEGER DEFAULT 0,
-        last_accessed DATETIME
-      )
+        last_accessed TIMESTAMP
+      );
     `);
 
-    // Create event_logs table
-    db.exec(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS event_logs (
-        id TEXT PRIMARY KEY,
-        zoom_account_id TEXT NOT NULL REFERENCES zoom_accounts(id),
-        event_type TEXT NOT NULL,
-        recording_id TEXT,
+        id UUID PRIMARY KEY,
+        zoom_account_id UUID NOT NULL REFERENCES zoom_accounts(id) ON DELETE CASCADE,
+        event_type VARCHAR(100) NOT NULL,
+        recording_id VARCHAR(255),
         payload TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
+
+    // Create indices
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_zoom_accounts_user_id ON zoom_accounts(user_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_zoom_accounts_zoom_user_id ON zoom_accounts(zoom_user_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_recordings_zoom_account_id ON recordings(zoom_account_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_share_links_recording_id ON share_links(recording_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_event_logs_zoom_account_id ON event_logs(zoom_account_id);`);
 
     console.log('Database initialized successfully');
-    return db;
+    return pool;
   } catch (error) {
     console.error('Database initialization error:', error);
     throw error;
@@ -89,5 +96,10 @@ export function initDB() {
 }
 
 export function getPool() {
-  return db;
+  return pool;
 }
+
+// Handle pool errors
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});

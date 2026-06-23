@@ -34,9 +34,9 @@ export async function getRecordingByToken(token) {
   const pool = getPool();
 
   const query = `
-    SELECT r.*, sl.token, sl.access_count
+    SELECT r.*, sl.token, sl.access_count, sl.last_accessed
     FROM share_links sl
-    JOIN recordings r ON sl.recording_id = r.recording_id
+    JOIN recordings r ON sl.recording_id = r.id
     WHERE sl.token = $1
   `;
 

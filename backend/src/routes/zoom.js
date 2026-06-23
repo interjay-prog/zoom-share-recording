@@ -102,20 +102,18 @@ router.post('/callback-exchange', authMiddleware, async (req, res) => {
     const zoomEmail = userResponse.data.email || userResponse.data.email_address;
 
     // Save to database
-    const db = getPool();
+    const pool = getPool();
     const accountId = uuidv4();
     const tokenExpiry = new Date(Date.now() + expires_in * 1000).toISOString();
     const webhookToken = uuidv4();
 
-    const stmt = db.prepare(`
+    await pool.query(`
       INSERT INTO zoom_accounts (
         id, user_id, zoom_user_id, zoom_email, access_token,
         refresh_token, token_expires_at, webhook_token, account_name
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [
       accountId,
       userId,
       zoomUserId,
@@ -125,7 +123,7 @@ router.post('/callback-exchange', authMiddleware, async (req, res) => {
       tokenExpiry,
       webhookToken,
       `Zoom Account - ${zoomEmail}`
-    );
+    ]);
 
     res.json({
       success: true,
@@ -149,19 +147,19 @@ router.post('/callback-exchange', authMiddleware, async (req, res) => {
  * GET /api/zoom/accounts
  * Get all connected Zoom accounts for current user
  */
-router.get('/accounts', authMiddleware, (req, res) => {
+router.get('/accounts', authMiddleware, async (req, res) => {
   try {
-    const db = getPool();
+    const pool = getPool();
     const userId = req.user.userId;
 
-    const accounts = db.prepare(`
+    const result = await pool.query(`
       SELECT id, zoom_email, zoom_user_id, account_name, webhook_verified, connected_at
       FROM zoom_accounts
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY connected_at DESC
-    `).all(userId);
+    `, [userId]);
 
-    res.json({ success: true, accounts });
+    res.json({ success: true, accounts: result.rows });
   } catch (error) {
     console.error('Error fetching Zoom accounts:', error);
     res.status(500).json({ error: 'Failed to fetch accounts' });
@@ -172,22 +170,22 @@ router.get('/accounts', authMiddleware, (req, res) => {
  * DELETE /api/zoom/accounts/:accountId
  * Disconnect a Zoom account
  */
-router.delete('/accounts/:accountId', authMiddleware, (req, res) => {
+router.delete('/accounts/:accountId', authMiddleware, async (req, res) => {
   try {
-    const db = getPool();
+    const pool = getPool();
     const userId = req.user.userId;
     const { accountId } = req.params;
 
     // Verify ownership
-    const account = db.prepare('SELECT user_id FROM zoom_accounts WHERE id = ?').get(accountId);
+    const result = await pool.query('SELECT user_id FROM zoom_accounts WHERE id = $1', [accountId]);
+    const account = result.rows[0];
+
     if (!account || account.user_id !== userId) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    // Delete account and related data
-    db.prepare('DELETE FROM zoom_accounts WHERE id = ?').run(accountId);
-    db.prepare('DELETE FROM recordings WHERE zoom_account_id = ?').run(accountId);
-    db.prepare('DELETE FROM share_links WHERE zoom_account_id = ?').run(accountId);
+    // Delete account and related data (cascading delete handles this)
+    await pool.query('DELETE FROM zoom_accounts WHERE id = $1', [accountId]);
 
     res.json({ success: true, message: 'Account disconnected' });
   } catch (error) {

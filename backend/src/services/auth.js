@@ -48,12 +48,12 @@ export function verifyToken(token) {
  * Register a new user
  */
 export async function registerUser(email, password, name = '') {
-  const db = getPool();
+  const pool = getPool();
 
   // Check if user already exists
-  const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const existingResult = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
 
-  if (existingUser) {
+  if (existingResult.rows.length > 0) {
     throw new Error('User with this email already exists');
   }
 
@@ -62,12 +62,11 @@ export async function registerUser(email, password, name = '') {
 
   // Create user
   const userId = uuidv4();
-  const stmt = db.prepare(`
+
+  await pool.query(`
     INSERT INTO users (id, email, password_hash, name)
-    VALUES (?, ?, ?, ?)
-  `);
-  
-  stmt.run(userId, email, passwordHash, name);
+    VALUES ($1, $2, $3, $4)
+  `, [userId, email, passwordHash, name]);
 
   const user = {
     id: userId,
@@ -85,12 +84,15 @@ export async function registerUser(email, password, name = '') {
  * Login user
  */
 export async function loginUser(email, password) {
-  const db = getPool();
+  const pool = getPool();
 
   // Find user
-  const user = db.prepare(
-    'SELECT id, email, name, password_hash, created_at FROM users WHERE email = ?'
-  ).get(email);
+  const result = await pool.query(
+    'SELECT id, email, name, password_hash, created_at FROM users WHERE email = $1',
+    [email]
+  );
+
+  const user = result.rows[0];
 
   if (!user) {
     throw new Error('Invalid email or password');
@@ -120,20 +122,21 @@ export async function loginUser(email, password) {
  * Get user by ID
  */
 export async function getUserById(userId) {
-  const db = getPool();
+  const pool = getPool();
 
-  const user = db.prepare(
-    'SELECT id, email, name, created_at, updated_at FROM users WHERE id = ?'
-  ).get(userId);
+  const result = await pool.query(
+    'SELECT id, email, name, created_at, updated_at FROM users WHERE id = $1',
+    [userId]
+  );
 
-  return user || null;
+  return result.rows[0] || null;
 }
 
 /**
  * Update user profile
  */
 export async function updateUser(userId, updates) {
-  const db = getPool();
+  const pool = getPool();
 
   const allowedFields = ['name', 'email'];
   const updateFields = Object.keys(updates)
@@ -143,21 +146,22 @@ export async function updateUser(userId, updates) {
     throw new Error('No valid fields to update');
   }
 
-  const setClauses = updateFields.map(field => `${field} = ?`);
+  const setClauses = updateFields.map((field, idx) => `${field} = $${idx + 1}`);
   const values = updateFields.map(field => updates[field]);
+  values.push(userId);
 
   const query = `
     UPDATE users
     SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
+    WHERE id = $${updateFields.length + 1}
   `;
 
-  const stmt = db.prepare(query);
-  stmt.run(...values, userId);
+  await pool.query(query, values);
 
-  const user = db.prepare(
-    'SELECT id, email, name, created_at, updated_at FROM users WHERE id = ?'
-  ).get(userId);
+  const result = await pool.query(
+    'SELECT id, email, name, created_at, updated_at FROM users WHERE id = $1',
+    [userId]
+  );
 
-  return user;
+  return result.rows[0];
 }
