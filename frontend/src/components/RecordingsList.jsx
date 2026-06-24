@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import './RecordingsList.css';
 
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
+  : 'https://zoom-share-recording-production.up.railway.app';
+
 export default function RecordingsList({ recordings }) {
   const [copiedToken, setCopiedToken] = useState(null);
 
   const copyToClipboard = (token) => {
-    const shareUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/share/${token}`;
+    const shareUrl = `${API_BASE}/api/share/${token}`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedToken(token);
     setTimeout(() => setCopiedToken(null), 2000);

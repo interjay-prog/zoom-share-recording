@@ -2,7 +2,9 @@ import { useState } from 'react';
 import axios from 'axios';
 import './Auth.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api'
+  : 'https://zoom-share-recording-production.up.railway.app/api';
 
 export default function Signup({ onSignupSuccess }) {
   const [email, setEmail] = useState('');
