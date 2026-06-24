@@ -34,13 +34,14 @@ router.get('/auth-url', authMiddleware, (req, res) => {
 router.get('/callback', async (req, res) => {
   try {
     const { code } = req.query;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
     if (!code) {
-      return res.redirect(`http://localhost:3000?error=no_code`);
+      return res.redirect(`${frontendUrl}?error=no_code`);
     }
 
     // Redirect to frontend callback page with code
-    res.redirect(`http://localhost:3000/zoom/callback?code=${code}`);
+    res.redirect(`${frontendUrl}/zoom/callback?code=${code}`);
   } catch (error) {
     console.error('Error in callback:', error);
     res.redirect(`http://localhost:3000?error=callback_failed`);
