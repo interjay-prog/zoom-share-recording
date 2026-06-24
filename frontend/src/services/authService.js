@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = `${window.location.origin === 'http://localhost:3000' ? 'http://localhost:5000' : window.location.origin.replace('-production', '')}/api`;
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api'
+  : 'https://zoom-share-recording-production.up.railway.app/api';
 
 /**
  * Get stored JWT token from localStorage
